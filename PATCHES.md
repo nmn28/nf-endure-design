@@ -49,6 +49,42 @@ When OVO releases pipeline updates, use this checklist to verify each patch is s
 - Same pattern: `python3 ${moduleDir}/bin/proteinsol.py` → `proteinsol.py`
 - Container pinned to `:v2`
 
+## rfdiffusion-backbone
+
+### pipelines/rfdiffusion-backbone/main.nf
+
+**Line ~9 (RFdiffusion process container):**
+- Removed: OVO's dynamic conda/container resolution (`conda { params.getSharedEnv(...) }`, `container "${ workflow.containerEngine ... }"`)
+- Added: `container "${params.docker_repository}ovo-rfdiffusion:v1"`
+- Reason: Same as proteinqc — pinned ECR container for AWS Batch
+
+**Line ~9 (label):**
+- Changed: no label → `label 'gpu'`
+- Reason: routes to GPU Forge queue via nextflow.config `withLabel: gpu` block
+
+**Lines ~42-43, ~77-78 (bin script references):**
+- Changed: `python3 ${moduleDir}/bin/validate_input.py` → `validate_input.py`
+- Changed: `python3 ${moduleDir}/bin/standardize_pdb.py` → `standardize_pdb.py`
+- Reason: Same as proteinqc — `${moduleDir}` is head-node path, inaccessible from Batch workers
+
+**Lines ~35-43 (RFdiffusion lib setup):**
+- Changed: conditional git clone fallback → simple `ln -s /opt/ ./lib` (RFdiffusion pre-installed in container)
+- Reason: Container has RFdiffusion at `/opt/RFdiffusion`, no need for runtime git clone
+
+### pipelines/rfdiffusion-backbone/nextflow.config
+
+**rfdiffusion_models_path:**
+- Changed: `"${params.reference_files_dir}/rfdiffusion_models/"` → `"s3://endure-design-outputs/reference-models/rfdiffusion/"`
+- Reason: Models staged on S3, not local filesystem
+
+**awsbatch profile (new addition):**
+- Added: `process.executor = 'awsbatch'`, `params.docker_repository = '799850497656.dkr.ecr.us-west-2.amazonaws.com/'`
+- Reason: Same as proteinqc — ECR Private container registry
+
+**process withLabel: gpu:**
+- Added: `queue = params.gpu_queue`
+- Reason: Routes GPU tasks to correct Forge GPU queue
+
 ## Future pipeline patches (predicted)
 
 These pipelines have known `executor 'local'` issues we'll need to patch when vendoring:
