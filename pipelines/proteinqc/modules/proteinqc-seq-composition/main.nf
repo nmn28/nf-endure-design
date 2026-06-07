@@ -3,7 +3,7 @@
 nextflow.enable.dsl = 2
 
 process proteinQCSeqComposition {
-  container "${params.docker_repository}ovo-python-structure"
+  container "${params.docker_repository}ovo-python-structure:v1"
   label 'seq_composition'
   publishDir { params.publish_dir ?: 'results' }
   input:

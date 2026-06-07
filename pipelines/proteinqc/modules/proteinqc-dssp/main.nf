@@ -3,7 +3,7 @@
 nextflow.enable.dsl = 2
 
 process proteinQCDSSP {
-  container "${params.docker_repository}ovo-dssp"
+  container "${params.docker_repository}ovo-dssp:v1"
   label 'dssp'
   publishDir { params.publish_dir ?: 'results' }
   input:

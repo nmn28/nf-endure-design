@@ -3,7 +3,7 @@
 nextflow.enable.dsl = 2
 
 process proteinQCProteinSol {
-  container "${params.docker_repository}ovo-proteinsol"
+  container "${params.docker_repository}ovo-proteinsol:v1"
   label 'proteinsol'
   cpus 1
   memory "1 GB"
