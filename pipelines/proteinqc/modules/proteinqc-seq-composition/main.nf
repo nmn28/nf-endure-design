@@ -3,7 +3,7 @@
 nextflow.enable.dsl = 2
 
 process proteinQCSeqComposition {
-  container "${params.docker_repository}ovo-python-structure:v1"
+  container "${params.docker_repository}ovo-python-structure:v2"
   label 'seq_composition'
   publishDir { params.publish_dir ?: 'results' }
   input:
@@ -17,7 +17,8 @@ process proteinQCSeqComposition {
 
   mkdir "${batch_dir}"
 
-  python3 ${moduleDir}/bin/seq_composition.py \
+  # ENDURE-PATCH: bare script name (baked into container at /usr/local/bin/)
+  seq_composition.py \
     ${pdb_dir} \
 	"${batch_dir}"/seq_composition.csv \
 	--chains "${chains}"

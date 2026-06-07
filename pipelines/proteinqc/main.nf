@@ -30,7 +30,7 @@ def createCsvBatches(inputPath, batchSize) {
 
 process createInputFolders {
     // ENDURE-PATCH: removed 'executor local'; added Batch directives for AWS Batch execution
-    container "${params.docker_repository}ovo-python-structure:v1"
+    container "${params.docker_repository}ovo-python-structure:v2"
     label 'cpu'
     cpus 1
     memory '1 GB'

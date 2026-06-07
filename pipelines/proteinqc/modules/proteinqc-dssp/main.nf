@@ -3,7 +3,7 @@
 nextflow.enable.dsl = 2
 
 process proteinQCDSSP {
-  container "${params.docker_repository}ovo-dssp:v1"
+  container "${params.docker_repository}ovo-dssp:v2"
   label 'dssp'
   publishDir { params.publish_dir ?: 'results' }
   input:
@@ -17,7 +17,8 @@ process proteinQCDSSP {
 
   mkdir "${batch_dir}"
 
-  python3 ${moduleDir}/bin/dssp.py \
+  # ENDURE-PATCH: bare script name (baked into container at /usr/local/bin/)
+  dssp.py \
     ${pdb_dir} \
 	"${batch_dir}"/dssp.csv \
 	--chains "${chains}"

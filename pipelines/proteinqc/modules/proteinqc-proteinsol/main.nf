@@ -3,7 +3,7 @@
 nextflow.enable.dsl = 2
 
 process proteinQCProteinSol {
-  container "${params.docker_repository}ovo-proteinsol:v1"
+  container "${params.docker_repository}ovo-proteinsol:v2"
   label 'proteinsol'
   cpus 1
   memory "1 GB"
@@ -28,7 +28,8 @@ process proteinQCProteinSol {
   fi
   ln -s /opt/ ./lib
 
-  python3 ${moduleDir}/bin/proteinsol.py \
+  # ENDURE-PATCH: bare script name (baked into container at /usr/local/bin/)
+  proteinsol.py \
     ${pdb_dir} \
     "${batch_dir}/proteinsol.csv" \
     --chains "${chains}"
