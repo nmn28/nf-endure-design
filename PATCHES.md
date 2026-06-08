@@ -85,6 +85,71 @@ When OVO releases pipeline updates, use this checklist to verify each patch is s
 - Added: `queue = params.gpu_queue`
 - Reason: Routes GPU tasks to correct Forge GPU queue
 
+## Container ENTRYPOINT Override Pattern (ENDURE-PATCH)
+
+External base images may set ENTRYPOINT to a command (e.g., `python run.py`, NVIDIA JAX wrapper), which conflicts with Nextflow's `.command.run` bash wrapper. Symptom: container fails in ~2 seconds with no `.command.log`, `.command.out`, or `.command.err` written. Zero-second failure with no output is the diagnostic signal.
+
+**Rule:** For every external base image, add `ENTRYPOINT []` as the last line of the Dockerfile unless explicitly verified that the base image leaves ENTRYPOINT unset.
+
+**Confirmed cases requiring override:**
+- `rosettacommons/ligandmpnn` (sets `python run.py`) — caught in Run #5
+- `nvcr.io/nvidia/jax:24.04-py3` (sets NVIDIA wrapper) — caught in Run #6
+
+**Future containers to audit before vendoring:**
+- `ovo-boltz` (if based on huggingface/Boltz official image)
+- `ovo-huggingface-transformers` (if based on official HF image)
+- `ovo-esm` (if based on official Facebook AI image)
+- `ovo-proteinmpnn-fastrelax` (if uses PyRosetta or ProteinMPNN base)
+
+**Verification command:**
+```bash
+docker inspect --format='{{json .Config.Entrypoint}}' <image>
+```
+
+If output is anything other than `null` or `[]`, add `ENTRYPOINT []` to the Dockerfile.
+
+## rfdiffusion-end-to-end (E2E pipeline)
+
+### E2E Run History — Bugs Found and Patched
+
+| Run | Bug | Fix |
+|-----|-----|-----|
+| #1 (`18Ea4NM7rxFjhJ`) | Config eval order: `params.gpu_queue` null in `withLabel` blocks | Move queue params to params-file, not profile |
+| #2 (`2sGQYlYAOxCU4k`) | Container shebang missing on `validate_input.py` | Rebuild `ovo-rfdiffusion:v1` with shebang-fixed scripts |
+| #3 (`1NB3ANUFTudlIq`) | `diffuser.T=2` < 15 assertion in RFdiffusion | Changed to `diffuser.T=25` |
+| #4 (`4QyTdyPHD8HUte`) | DSL2 `bin/` not staged for `include`d modules | Created unified `bin/` in E2E pipeline root (15 scripts) |
+| #5 (`4M1QFotg9Soghe`) | RosettaCommons LigandMPNN ENTRYPOINT conflict | Added `ENTRYPOINT []` to LigandMPNN Dockerfile |
+| #6 (`2m3z2X2Dii0bUv`) | NVIDIA JAX ColabDesign ENTRYPOINT conflict | Added `ENTRYPOINT []` to ColabDesign Dockerfile |
+
+### pipelines/rfdiffusion-end-to-end/nextflow.config
+
+**ECR registry:**
+- Changed: `339712971032.dkr.ecr.us-east-1.amazonaws.com/` → `799850497656.dkr.ecr.us-west-2.amazonaws.com/`
+- Reason: Correct AWS account and region
+
+**S3 model paths:**
+- Changed: `s3://endure-design-models/` → `s3://endure-design-outputs/reference-models/`
+- Reason: Models staged on our S3 bucket, not OVO's
+
+**Queue params:**
+- Changed: Queue values from awsbatch profile → top-level params (set via params-file)
+- Reason: Nextflow evaluates `process.withLabel` before profile params merge
+
+### pipelines/rfdiffusion-end-to-end/bin/ (unified)
+
+Created unified bin/ directory containing ALL scripts from ALL sub-pipelines (15 scripts). Required because Nextflow DSL2 only auto-stages `bin/` from the main script's directory, not from `include`d modules.
+
+### pipelines/refolding/main.nf
+
+**ESMFold and Boltz includes:**
+- Commented out `include { ESMFold }` and `include { BoltzRefolding }`
+- Replaced workflow blocks with `throw new IllegalArgumentException(...)`
+- Reason: ESMFold and Boltz pipelines not yet vendored; include statements would cause compile-time failure
+
+**AlphaFold include path:**
+- Changed: `'../alphafold-initial-guess'` (relative path, ENDURE-PATCH)
+- Reason: OVO uses absolute HealthOmics paths
+
 ## Future pipeline patches (predicted)
 
 These pipelines have known `executor 'local'` issues we'll need to patch when vendoring:
@@ -93,9 +158,20 @@ These pipelines have known `executor 'local'` issues we'll need to patch when ve
 - **rfdiffusion-end-to-end/main.nf** — Line ~172: `CreateBackboneFolders` process. Line ~187: `UnpackBackbones` process. Same pattern, two occurrences.
 - **protein-clustering/module/createInputFolders.nf** — Line ~4: `createInputFolders` process. Same pattern.
 
-All will need the same 5-pattern treatment used for proteinqc:
+All will need the same 6-pattern treatment used for proteinqc:
 1. Remove `executor 'local'`, add Batch directives
 2. Pin container tags (`:vN`)
 3. Use ECR Private registry
 4. Bake bin scripts into containers
 5. Install `procps` in every Dockerfile
+6. Add `ENTRYPOINT []` if base image sets an entrypoint
+
+## Post-launch optimizations (deferred)
+
+### AF2 weights extraction
+
+The AF2 stage extracts the 5.2GB `alphafold_params_2022-12-06.tar` at runtime in every task via `tar -xf`. This adds 3-5 min per AF2 task wall-clock.
+
+Optimization: pre-extract the tar on S3 to `s3://endure-design-outputs/reference-models/alphafold-extracted/`, mount the directory directly. Saves 3-5 min per AF2 task. Estimated effort: S (one-time S3 op + config path update).
+
+Defer until: AF2 task count per run is high enough that 3-5 min × N tasks matters (currently 1 design per run).
