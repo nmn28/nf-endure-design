@@ -90,13 +90,16 @@ def handler(job):
         remark_json = os.path.join(workdir, "remark_multi.json")
 
         print(f"[{job_id}] Preparing JSON from PDB headers...")
-        subprocess.run([
+        prep_result = subprocess.run([
             "prepare_json.py",
             "--pdb_dir", pdb_dir,
             "--pdb_ids_json", pdb_json,
             "--redesigned_residues_json", redesigned_json,
             "--remark_json", remark_json,
-        ], check=True, cwd=workdir)
+        ], capture_output=True, text=True, cwd=workdir)
+        if prep_result.returncode != 0:
+            print(f"[{job_id}] prepare_json.py stderr:\n{prep_result.stderr[-2000:]}")
+            raise RuntimeError(f"prepare_json.py failed: {prep_result.stderr[-500:]}")
 
         # Run LigandMPNN
         print(f"[{job_id}] Running LigandMPNN: {num_seq_per_target} seqs/target")
@@ -114,7 +117,11 @@ def handler(job):
         ]
         if run_parameters:
             cmd.extend(run_parameters.split())
-        subprocess.run(cmd, check=True, cwd=workdir)
+        mpnn_result = subprocess.run(cmd, capture_output=True, text=True, cwd=workdir)
+        if mpnn_result.returncode != 0:
+            print(f"[{job_id}] LigandMPNN stdout:\n{mpnn_result.stdout[-2000:]}")
+            print(f"[{job_id}] LigandMPNN stderr:\n{mpnn_result.stderr[-2000:]}")
+            raise RuntimeError(f"LigandMPNN failed: {mpnn_result.stderr[-500:]}")
         mpnn_time = time.time() - t0
         print(f"[{job_id}] LigandMPNN completed in {mpnn_time:.1f}s")
 
@@ -123,9 +130,12 @@ def handler(job):
         std_dir = os.path.join(outdir, "ligandmpnn", "standardized_pdb")
         os.makedirs(std_dir, exist_ok=True)
 
-        subprocess.run([
+        remarks_result = subprocess.run([
             "copy_remarks.sh", remark_json, packed_dir, std_dir
-        ], check=True, cwd=workdir)
+        ], capture_output=True, text=True, cwd=workdir)
+        if remarks_result.returncode != 0:
+            print(f"[{job_id}] copy_remarks.sh stderr:\n{remarks_result.stderr[-2000:]}")
+            raise RuntimeError(f"copy_remarks.sh failed: {remarks_result.stderr[-500:]}")
 
         # Upload
         s3_prefix = f"protein-design/{job_id}"

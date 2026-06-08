@@ -119,7 +119,11 @@ def handler(job):
         env = os.environ.copy()
         env["MPLBACKEND"] = ""  # prevent matplotlib issues
 
-        subprocess.run(cmd, env=env, check=True, cwd=workdir)
+        af2_result = subprocess.run(cmd, env=env, capture_output=True, text=True, cwd=workdir)
+        if af2_result.returncode != 0:
+            print(f"[{job_id}] AF2 stdout:\n{af2_result.stdout[-2000:]}")
+            print(f"[{job_id}] AF2 stderr:\n{af2_result.stderr[-2000:]}")
+            raise RuntimeError(f"AF2 initial guess failed: {af2_result.stderr[-500:]}")
         af2_time = time.time() - t0
         print(f"[{job_id}] AF2 initial guess completed in {af2_time:.1f}s")
 

@@ -92,7 +92,11 @@ def handler(job):
             cmd.append(f"ppi.hotspot_res=[{hotspot}]")
         if run_parameters:
             cmd.extend(run_parameters.split())
-        subprocess.run(cmd, env=env, check=True, cwd=workdir)
+        rf_result = subprocess.run(cmd, env=env, capture_output=True, text=True, cwd=workdir)
+        if rf_result.returncode != 0:
+            print(f"[{job_id}] RFdiffusion stdout:\n{rf_result.stdout[-2000:]}")
+            print(f"[{job_id}] RFdiffusion stderr:\n{rf_result.stderr[-2000:]}")
+            raise RuntimeError(f"RFdiffusion failed: {rf_result.stderr[-500:]}")
         inference_time = time.time() - t0
         print(f"[{job_id}] RFdiffusion completed in {inference_time:.1f}s")
 
@@ -114,10 +118,13 @@ def handler(job):
 
         # Standardize PDBs
         print(f"[{job_id}] Standardizing PDBs...")
-        subprocess.run(
+        std_result = subprocess.run(
             ["standardize_pdb.py", pdb_dir, trb_dir, std_pdb_dir],
-            env=env, check=True
+            env=env, capture_output=True, text=True
         )
+        if std_result.returncode != 0:
+            print(f"[{job_id}] standardize_pdb.py stderr:\n{std_result.stderr[-2000:]}")
+            raise RuntimeError(f"standardize_pdb.py failed: {std_result.stderr[-500:]}")
 
         # Upload
         s3_prefix = f"protein-design/{job_id}"
