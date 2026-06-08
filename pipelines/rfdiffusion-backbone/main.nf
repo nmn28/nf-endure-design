@@ -65,6 +65,7 @@ process RFdiffusion {
       mv output/traj ${batch_name}/rfdiffusion_traj
     else
       mkdir -p ${batch_name}/rfdiffusion_traj
+      touch ${batch_name}/rfdiffusion_traj/.placeholder
     fi
     mkdir -p ${batch_name}/rfdiffusion_standardized_pdb/
 
