@@ -68,10 +68,14 @@ def handler(job):
 
         # Validate input
         print(f"[{job_id}] Validating input...")
-        subprocess.run(
+        val_result = subprocess.run(
             ["validate_input.py", input_pdb, contig],
-            env=env, check=True, cwd=workdir
+            env=env, capture_output=True, text=True, cwd=workdir
         )
+        if val_result.returncode != 0:
+            err_detail = val_result.stderr.strip() or val_result.stdout.strip()
+            print(f"[{job_id}] validate_input.py failed: {err_detail}")
+            raise RuntimeError(f"Input validation failed: {err_detail}")
 
         # Run RFdiffusion
         print(f"[{job_id}] Running RFdiffusion: {num_designs} designs, contig={contig}")
