@@ -96,7 +96,8 @@ def handler(job):
         if rf_result.returncode != 0:
             print(f"[{job_id}] RFdiffusion stdout:\n{rf_result.stdout[-2000:]}")
             print(f"[{job_id}] RFdiffusion stderr:\n{rf_result.stderr[-2000:]}")
-            raise RuntimeError(f"RFdiffusion failed: {rf_result.stderr[-500:]}")
+            combined = rf_result.stdout[-1000:] + "\n---STDERR---\n" + rf_result.stderr[-1000:]
+            raise RuntimeError(f"RFdiffusion failed: {combined}")
         inference_time = time.time() - t0
         print(f"[{job_id}] RFdiffusion completed in {inference_time:.1f}s")
 
