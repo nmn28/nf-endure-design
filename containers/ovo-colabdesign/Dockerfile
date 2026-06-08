@@ -23,6 +23,9 @@ RUN pip install --no-cache-dir awscli && \
     tar -xf /tmp/af2_params.tar -C /opt/alphafold/params && \
     rm /tmp/af2_params.tar
 
+# Fix high-UID files that break RunPod's user namespace mapping
+RUN find / -uid 995210 -exec chown root:root {} + 2>/dev/null || true
+
 # Bake OVO bin scripts into container
 COPY bin/af2_initial_guess_scaffold_eval.py /usr/local/bin/af2_initial_guess_scaffold_eval.py
 COPY bin/af2_initial_guess_binder_eval.py /usr/local/bin/af2_initial_guess_binder_eval.py
