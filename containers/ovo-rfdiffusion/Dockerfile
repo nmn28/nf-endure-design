@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends procps && \
 RUN git clone --depth 1 https://github.com/RosettaCommons/RFdiffusion.git /opt/RFdiffusion && \
     pip install --no-cache-dir /opt/RFdiffusion/env/SE3Transformer && \
     pip install --no-cache-dir --no-deps /opt/RFdiffusion && \
-    pip install --no-cache-dir e3nn pyrsistent hydra-core pynvml biopandas biopython pandas dgl
+    pip install --no-cache-dir e3nn pyrsistent hydra-core pynvml biopandas biopython pandas "dgl==1.1.3"
 
 ENV DGLBACKEND="pytorch"
 
