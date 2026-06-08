@@ -104,7 +104,7 @@ def handler(job):
         t0 = time.time()
 
         cmd = [
-            eval_script,
+            "python3", f"/usr/local/bin/{eval_script}",
             pdb_dir,
             output_name,
             "--params", params_link,

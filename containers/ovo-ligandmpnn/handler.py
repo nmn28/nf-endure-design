@@ -91,7 +91,7 @@ def handler(job):
 
         print(f"[{job_id}] Preparing JSON from PDB headers...")
         prep_result = subprocess.run([
-            "prepare_json.py",
+            "python3", "/usr/local/bin/prepare_json.py",
             "--pdb_dir", pdb_dir,
             "--pdb_ids_json", pdb_json,
             "--redesigned_residues_json", redesigned_json,
@@ -131,7 +131,7 @@ def handler(job):
         os.makedirs(std_dir, exist_ok=True)
 
         remarks_result = subprocess.run([
-            "copy_remarks.sh", remark_json, packed_dir, std_dir
+            "bash", "/usr/local/bin/copy_remarks.sh", remark_json, packed_dir, std_dir
         ], capture_output=True, text=True, cwd=workdir)
         if remarks_result.returncode != 0:
             print(f"[{job_id}] copy_remarks.sh stderr:\n{remarks_result.stderr[-2000:]}")

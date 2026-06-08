@@ -69,7 +69,7 @@ def handler(job):
         # Validate input
         print(f"[{job_id}] Validating input...")
         val_result = subprocess.run(
-            ["validate_input.py", input_pdb, contig],
+            ["python3", "/usr/local/bin/validate_input.py", input_pdb, contig],
             env=env, capture_output=True, text=True, cwd=workdir
         )
         if val_result.returncode != 0:
@@ -119,7 +119,7 @@ def handler(job):
         # Standardize PDBs
         print(f"[{job_id}] Standardizing PDBs...")
         std_result = subprocess.run(
-            ["standardize_pdb.py", pdb_dir, trb_dir, std_pdb_dir],
+            ["python3", "/usr/local/bin/standardize_pdb.py", pdb_dir, trb_dir, std_pdb_dir],
             env=env, capture_output=True, text=True
         )
         if std_result.returncode != 0:
