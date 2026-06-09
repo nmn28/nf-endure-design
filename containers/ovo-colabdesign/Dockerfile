@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends procps && \
 RUN pip install --no-cache-dir \
     git+https://github.com/sokrypton/ColabDesign.git \
     biopython \
-    numpy
+    numpy \
+    "dm-haiku==0.0.12"
 
 # Bake AlphaFold2 model params (5.2 GB tar, ~15 GB extracted)
 ARG AWS_ACCESS_KEY_ID
