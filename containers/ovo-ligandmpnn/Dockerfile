@@ -9,11 +9,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends procps jq && \
 
 # Install LigandMPNN (no setup.py — clone repo + install deps separately)
 RUN git clone https://github.com/dauparas/LigandMPNN.git /opt/LigandMPNN && \
-    pip install --no-cache-dir biopython ProDy scipy ml-collections dm-tree
+    pip install --no-cache-dir biopython ProDy scipy ml-collections dm-tree "numpy<1.24"
 
 # Download LigandMPNN model params (not included in repo)
 RUN cd /opt/LigandMPNN && \
-    bash get_model_params.sh
+    bash get_model_params.sh ./model_params
 
 # Bake OVO bin scripts into container
 COPY bin/prepare_json.py /usr/local/bin/prepare_json.py
