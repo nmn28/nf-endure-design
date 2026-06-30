@@ -1,7 +1,7 @@
 # ovo-rfdiffusion:v3 — RFdiffusion v1/v2 + RFdiffusion3 for RunPod Serverless
 # Weights baked in for fast cold starts
 
-FROM nvcr.io/nvidia/pytorch:24.07-py3
+FROM nvcr.io/nvidia/pytorch:24.12-py3
 
 # Nextflow/RunPod requires ps (procps)
 RUN apt-get update && apt-get install -y --no-install-recommends procps && \
@@ -12,7 +12,7 @@ RUN git clone --depth 1 https://github.com/RosettaCommons/RFdiffusion.git /opt/R
     pip install --no-cache-dir /opt/RFdiffusion/env/SE3Transformer && \
     pip install --no-cache-dir --no-deps /opt/RFdiffusion && \
     pip install --no-cache-dir e3nn pyrsistent hydra-core pynvml biopandas biopython pandas && \
-    pip install --no-cache-dir dgl -f https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html
+    pip install --no-cache-dir dgl -f https://data.dgl.ai/wheels/torch-2.5/cu124/repo.html
 
 ENV DGLBACKEND="pytorch"
 
