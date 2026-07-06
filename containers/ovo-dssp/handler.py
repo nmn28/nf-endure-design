@@ -39,14 +39,21 @@ def download_pdbs(s3_uri, local_dir):
 def run_dssp(pdb_path):
     """Run mkdssp on a PDB file and return the DSSP output text."""
     try:
+        # mkdssp 4.x uses positional args, not -i flag
         result = subprocess.run(
-            ["mkdssp", "-i", pdb_path],
+            ["mkdssp", "--output-format", "dssp", pdb_path],
             capture_output=True, text=True, timeout=60
         )
         if result.returncode != 0:
+            # Fallback: try legacy -i flag (mkdssp 3.x)
+            result = subprocess.run(
+                ["mkdssp", "-i", pdb_path],
+                capture_output=True, text=True, timeout=60
+            )
+        if result.returncode != 0:
             # Try alternative binary name
             result = subprocess.run(
-                ["dssp", "-i", pdb_path],
+                ["dssp", "--output-format", "dssp", pdb_path],
                 capture_output=True, text=True, timeout=60
             )
         return result.stdout if result.returncode == 0 else None

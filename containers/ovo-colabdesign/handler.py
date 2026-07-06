@@ -156,6 +156,19 @@ def handle_colabdesign(job_id, job_input, outdir, workdir):
     print(f"[{job_id}] Uploaded {len(uploaded)} files to s3://{S3_BUCKET}/{s3_prefix}/")
 
     output_pdb_count = len(glob.glob(os.path.join(output_name, "*.pdb")))
+    # Build designs array for backend /descriptors endpoint
+    designs = []
+    for m in metrics_list:
+        design_id = m.get("name", m.get("id", ""))
+        descriptors = {k: v for k, v in m.items()
+                       if k not in ("name", "id", "sequence") and isinstance(v, (int, float))}
+        designs.append({
+            "id": design_id,
+            "pdb_path": f"s3://{S3_BUCKET}/{s3_prefix}/{design_id}.pdb" if design_id else "",
+            "descriptors": descriptors,
+            "sequence": m.get("sequence", ""),
+        })
+
     return {
         "status": "success",
         "mode": "colabdesign",
@@ -164,7 +177,9 @@ def handle_colabdesign(job_id, job_input, outdir, workdir):
         "num_output_pdbs": output_pdb_count,
         "af2_time_sec": round(af2_time, 1),
         "metrics": metrics_list,
-        "s3_prefix": f"s3://{S3_BUCKET}/{s3_prefix}/"
+        "designs": designs,
+        "s3_prefix": f"s3://{S3_BUCKET}/{s3_prefix}/",
+        "rfdiffusion_s3_prefix": f"s3://{S3_BUCKET}/{s3_prefix}/",
     }
 
 
@@ -274,7 +289,12 @@ def handle_bindcraft(job_id, job_input, outdir, workdir):
         with open(stats_csv) as f:
             reader = csv.DictReader(f)
             for row in reader:
-                design = {"id": row.get("Design", ""), "descriptors": {}}
+                design_id = row.get("Design", "")
+                design = {
+                    "id": design_id,
+                    "pdb_path": f"s3://{S3_BUCKET}/{s3_prefix}/Accepted/{design_id}.pdb" if design_id else "",
+                    "descriptors": {},
+                }
                 for k, v in row.items():
                     if k == "Design":
                         continue
