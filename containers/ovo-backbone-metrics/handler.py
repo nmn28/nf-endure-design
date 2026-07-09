@@ -18,7 +18,7 @@ from Bio.PDB import PDBParser
 from scipy.spatial.distance import pdist, squareform
 
 s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-west-2"))
-S3_BUCKET = os.environ.get("S3_BUCKET", "endure-protein-results")
+S3_BUCKET = os.environ.get("S3_BUCKET", "endure-media")
 
 CLASH_THRESHOLD = 3.0  # Å — CA-CA distance below this is a clash
 CONTACT_THRESHOLD = 8.0  # Å — CA-CA distance below this counts as contact

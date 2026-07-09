@@ -10,7 +10,7 @@ import time
 import glob
 
 s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-west-2"))
-S3_BUCKET = os.environ.get("S3_BUCKET", "endure-protein-results")
+S3_BUCKET = os.environ.get("S3_BUCKET", "endure-media")
 
 LIGANDMPNN_DIR = "/opt/LigandMPNN"
 
