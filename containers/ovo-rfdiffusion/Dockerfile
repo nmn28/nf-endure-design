@@ -12,7 +12,7 @@ RUN git clone --depth 1 https://github.com/RosettaCommons/RFdiffusion.git /opt/R
     pip install --no-cache-dir /opt/RFdiffusion/env/SE3Transformer && \
     pip install --no-cache-dir --no-deps /opt/RFdiffusion && \
     pip install --no-cache-dir e3nn pyrsistent hydra-core pynvml biopandas biopython pandas && \
-    pip install --no-cache-dir dgl -f https://data.dgl.ai/wheels/torch-2.5/cu124/repo.html
+    pip install --no-cache-dir dgl -f https://data.dgl.ai/wheels/torch-2.6/cu124/repo.html
 
 ENV DGLBACKEND="pytorch"
 

@@ -24,8 +24,8 @@ RUN pip install --no-cache-dir \
     biopandas==0.5.1
 
 # DGL for PyTorch 2.4 + CUDA 12.4
-RUN pip install --no-cache-dir dgl -f https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html || \
-    pip install --no-cache-dir dgl
+RUN pip install --no-cache-dir "dgl>=2.4.0" -f https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html || \
+    pip install --no-cache-dir "dgl>=2.4.0"
 
 # dllogger (NVIDIA)
 RUN pip install --no-cache-dir git+https://github.com/NVIDIA/dllogger#egg=dllogger
