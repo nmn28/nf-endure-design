@@ -102,7 +102,7 @@ def handle_colabdesign(job_id, job_input, outdir, workdir):
     t0 = time.time()
 
     cmd = [
-        "python3", f"/usr/local/bin/{eval_script}",
+        "/usr/bin/python3", f"/usr/local/bin/{eval_script}",
         pdb_dir,
         output_name,
         "--params", params_link,
@@ -268,7 +268,7 @@ def handle_bindcraft(job_id, job_input, outdir, workdir):
     env["AF2_PARAMS_DIR"] = AF2_PARAMS_DIR
 
     cmd = [
-        "python3", os.path.join(BINDCRAFT_DIR, "bindcraft.py"),
+        "/usr/bin/python3", os.path.join(BINDCRAFT_DIR, "bindcraft.py"),
         "--settings", target_settings_path,
         "--filters", filter_file,
         "--advanced", advanced_file,
