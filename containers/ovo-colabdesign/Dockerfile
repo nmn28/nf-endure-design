@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir \
     "dm-haiku==0.0.12"
 
 # Install conda (needed for PyRosetta from conda.graylab.jhu.edu)
-RUN curl -sL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh && \
+RUN curl -sL https://repo.anaconda.com/miniconda/Miniconda3-py312_24.11.1-0-Linux-x86_64.sh -o /tmp/miniconda.sh && \
     bash /tmp/miniconda.sh -b -p /opt/conda && \
     rm /tmp/miniconda.sh
 ENV PATH="/opt/conda/bin:$PATH"

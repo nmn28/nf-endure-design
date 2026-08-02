@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """RunPod serverless handler for AlphaFold2 initial guess (ColabDesign) + BindCraft."""
+import multiprocessing
+multiprocessing.set_start_method("fork")  # Python 3.14 defaults to forkserver, which breaks runpod
+
 import runpod
 import boto3
 import csv
