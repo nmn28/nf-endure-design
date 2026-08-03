@@ -42,7 +42,7 @@ RUN pip install --no-cache-dir \
     biopython \
     numpy \
     "dm-haiku==0.0.12" \
-    jax jaxlib
+    "jax==0.4.30" "jaxlib==0.4.30"
 
 # Install additional BindCraft dependencies
 RUN pip install --no-cache-dir seaborn pdbfixer
