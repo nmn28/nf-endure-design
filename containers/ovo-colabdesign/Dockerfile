@@ -61,6 +61,12 @@ RUN chmod +x /opt/bindcraft/functions/DAlphaBall.gcc /opt/bindcraft/functions/ds
 # Install RunPod + boto3
 RUN pip install --no-cache-dir runpod boto3
 
+# Fix UID 995210 files from PyRosetta — RunPod's user-namespace runtime
+# cannot map this UID, causing "container ID 995210 cannot be mapped to
+# a host ID" on pull. Must be a separate final RUN so the layer diff
+# records the ownership change.
+RUN find / -uid 995210 -exec chown root:root {} + 2>/dev/null || true
+
 # Copy handler
 COPY handler.py /opt/handler.py
 
