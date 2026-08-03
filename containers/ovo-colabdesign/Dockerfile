@@ -1,21 +1,27 @@
-# ovo-colabdesign:v16 — AlphaFold2 initial guess (ColabDesign) + BindCraft for RunPod Serverless
+# ovo-colabdesign:v17 — AlphaFold2 initial guess (ColabDesign) + BindCraft for RunPod Serverless
 # AF2 weights baked in for fast cold starts (~5.2 GB tar → ~15 GB extracted)
 #
 # All pip packages are installed into the conda Python so handler.py and
 # the af2 eval subprocess share a single environment.
 #
-# IMPORTANT: PyRosetta ships files owned by UID 995210. RunPod uses user
-# namespaces that cannot map UIDs >65535. The chown MUST be in the SAME
-# RUN layer as the conda install — a separate layer does NOT fix it.
+# HIGH-UID FIX: Three things cause pull failures on RunPod (user namespaces
+# reject UID/GID >65535):
+#   1. tar as root preserves original ownership (--same-owner default) —
+#      the AF2 weights tarball may contain high-UID files
+#   2. chown without -h follows symlinks — conda trees are mostly symlinks,
+#      so the symlinks themselves keep the offending UID
+#   3. find -uid misses files where only the GID is high
 
 FROM nvcr.io/nvidia/jax:24.04-py3
+
+# Prevent tar from preserving high UIDs when extracting as root
+ENV TAR_OPTIONS=--no-same-owner
 
 # Nextflow/RunPod requires ps (procps)
 RUN apt-get update && apt-get install -y --no-install-recommends procps && \
     rm -rf /var/lib/apt/lists/*
 
-# Install conda + pin Python 3.12 + PyRosetta + fix UID 995210 — ALL IN ONE LAYER.
-# Separate RUN steps would leave intermediate layers with unmappable UIDs.
+# Install conda + pin Python 3.12 + PyRosetta + fix high UIDs/GIDs
 RUN curl -sL https://repo.anaconda.com/miniconda/Miniconda3-py312_24.11.1-0-Linux-x86_64.sh -o /tmp/miniconda.sh && \
     bash /tmp/miniconda.sh -b -p /opt/conda && \
     rm /tmp/miniconda.sh && \
@@ -25,7 +31,7 @@ RUN curl -sL https://repo.anaconda.com/miniconda/Miniconda3-py312_24.11.1-0-Linu
     conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
     conda install -y -c https://conda.graylab.jhu.edu pyrosetta && \
     conda clean -afy && \
-    find / -uid 995210 -exec chown root:root {} + 2>/dev/null || true
+    find / \( -uid 995210 -o -gid 995210 \) -exec chown -h root:root {} + 2>/dev/null || true
 ENV PATH="/opt/conda/bin:$PATH"
 
 # Install ColabDesign + all pip dependencies into conda's Python
@@ -47,7 +53,7 @@ ARG AWS_DEFAULT_REGION=us-west-2
 RUN pip install --no-cache-dir awscli && \
     mkdir -p /opt/alphafold/params && \
     aws s3 cp s3://endure-design-outputs/reference-models/alphafold/alphafold_params_2022-12-06.tar /tmp/af2_params.tar && \
-    tar -xf /tmp/af2_params.tar -C /opt/alphafold/params && \
+    tar --no-same-owner -xf /tmp/af2_params.tar -C /opt/alphafold/params && \
     rm /tmp/af2_params.tar
 
 # Bake OVO bin scripts into container
@@ -64,6 +70,10 @@ RUN pip install --no-cache-dir runpod boto3
 
 # Copy handler
 COPY handler.py /opt/handler.py
+
+# Build-time assertion: fail loudly if any file has UID or GID >65535
+RUN bad=$(find / \( -uid +65535 -o -gid +65535 \) 2>/dev/null | head -20); \
+    [ -z "$bad" ] || { echo "HIGH UID/GID FILES FOUND:"; echo "$bad"; exit 1; }
 
 ENTRYPOINT []
 CMD ["python", "-u", "/opt/handler.py"]
