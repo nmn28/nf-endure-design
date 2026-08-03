@@ -14,7 +14,7 @@
 
 FROM nvcr.io/nvidia/jax:24.04-py3
 
-# Prevent tar from preserving high UIDs when extracting as root
+# Prevent tar from preserving high UIDs when extracting as root (build-only)
 ENV TAR_OPTIONS=--no-same-owner
 
 # Nextflow/RunPod requires ps (procps)
@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends procps && \
     rm -rf /var/lib/apt/lists/*
 
 # Install conda + pin Python 3.12 + PyRosetta + fix high UIDs/GIDs
+# -xdev: stay on real filesystems, skip /proc /sys
 RUN curl -sL https://repo.anaconda.com/miniconda/Miniconda3-py312_24.11.1-0-Linux-x86_64.sh -o /tmp/miniconda.sh && \
     bash /tmp/miniconda.sh -b -p /opt/conda && \
     rm /tmp/miniconda.sh && \
@@ -31,7 +32,7 @@ RUN curl -sL https://repo.anaconda.com/miniconda/Miniconda3-py312_24.11.1-0-Linu
     conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
     conda install -y -c https://conda.graylab.jhu.edu pyrosetta && \
     conda clean -afy && \
-    find / \( -uid 995210 -o -gid 995210 \) -exec chown -h root:root {} + 2>/dev/null || true
+    find / -xdev \( -uid 995210 -o -gid 995210 \) -exec chown -h root:root {} + 2>/dev/null || true
 ENV PATH="/opt/conda/bin:$PATH"
 
 # Install ColabDesign + all pip dependencies into conda's Python
@@ -71,9 +72,14 @@ RUN pip install --no-cache-dir runpod boto3
 # Copy handler
 COPY handler.py /opt/handler.py
 
-# Build-time assertion: fail loudly if any file has UID or GID >65535
-RUN bad=$(find / \( -uid +65535 -o -gid +65535 \) 2>/dev/null | head -20); \
+# Merged-filesystem sanity check (necessary but not sufficient — layers are
+# validated independently at pull time). The sufficient check is docker save +
+# per-layer tar inspection, run post-build before push.
+RUN bad=$(find / -xdev \( -uid +65535 -o -gid +65535 \) 2>/dev/null | head -20); \
     [ -z "$bad" ] || { echo "HIGH UID/GID FILES FOUND:"; echo "$bad"; exit 1; }
+
+# Clear TAR_OPTIONS so runtime tar behaves normally
+ENV TAR_OPTIONS=
 
 ENTRYPOINT []
 CMD ["python", "-u", "/opt/handler.py"]
