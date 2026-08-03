@@ -1,5 +1,8 @@
-# ovo-colabdesign:v4 — AlphaFold2 initial guess (ColabDesign) + BindCraft for RunPod Serverless
+# ovo-colabdesign:v15 — AlphaFold2 initial guess (ColabDesign) + BindCraft for RunPod Serverless
 # AF2 weights baked in for fast cold starts (~5.2 GB tar → ~15 GB extracted)
+#
+# All pip packages are installed into the conda Python so handler.py and
+# the af2 eval subprocess share a single environment.
 
 FROM nvcr.io/nvidia/jax:24.04-py3
 
@@ -7,18 +10,15 @@ FROM nvcr.io/nvidia/jax:24.04-py3
 RUN apt-get update && apt-get install -y --no-install-recommends procps && \
     rm -rf /var/lib/apt/lists/*
 
-# Install ColabDesign + dependencies
-RUN pip install --no-cache-dir \
-    git+https://github.com/sokrypton/ColabDesign.git \
-    biopython \
-    numpy \
-    "dm-haiku==0.0.12"
-
 # Install conda (needed for PyRosetta from conda.graylab.jhu.edu)
+# Pin Python 3.12 to avoid surprise upgrades (3.14 breaks runpod multiprocessing)
 RUN curl -sL https://repo.anaconda.com/miniconda/Miniconda3-py312_24.11.1-0-Linux-x86_64.sh -o /tmp/miniconda.sh && \
     bash /tmp/miniconda.sh -b -p /opt/conda && \
     rm /tmp/miniconda.sh
 ENV PATH="/opt/conda/bin:$PATH"
+
+# Pin Python 3.12 so PyRosetta can't drag in 3.14
+RUN conda install -y python=3.12 && conda clean -afy
 
 # Install PyRosetta via conda (academic/free channel)
 RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
@@ -26,6 +26,15 @@ RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkg
     conda install -y -c https://conda.graylab.jhu.edu pyrosetta && \
     conda clean -afy && \
     find /opt/conda -uid 995210 -exec chown root:root {} + 2>/dev/null || true
+
+# Install ColabDesign + all pip dependencies into conda's Python
+# (must come AFTER conda setup so pip resolves to /opt/conda/bin/pip)
+RUN pip install --no-cache-dir \
+    git+https://github.com/sokrypton/ColabDesign.git \
+    biopython \
+    numpy \
+    "dm-haiku==0.0.12" \
+    jax jaxlib
 
 # Install additional BindCraft dependencies
 RUN pip install --no-cache-dir seaborn pdbfixer
