@@ -1,16 +1,11 @@
-# ovo-colabdesign:v17 — AlphaFold2 initial guess (ColabDesign) + BindCraft for RunPod Serverless
+# ovo-colabdesign:v19 — AlphaFold2 initial guess (ColabDesign) + BindCraft for RunPod Serverless
 # AF2 weights baked in for fast cold starts (~5.2 GB tar → ~15 GB extracted)
 #
-# All pip packages are installed into the conda Python so handler.py and
-# the af2 eval subprocess share a single environment.
+# Single Python stack: base image Python 3.10 with NVIDIA's pre-matched
+# JAX 0.4.26 + CUDA 12.4 + cuDNN 9.1. No conda. PyRosetta via pip wheel.
 #
-# HIGH-UID FIX: Three things cause pull failures on RunPod (user namespaces
-# reject UID/GID >65535):
-#   1. tar as root preserves original ownership (--same-owner default) —
-#      the AF2 weights tarball may contain high-UID files
-#   2. chown without -h follows symlinks — conda trees are mostly symlinks,
-#      so the symlinks themselves keep the offending UID
-#   3. find -uid misses files where only the GID is high
+# HIGH-UID FIX: tar --no-same-owner prevents AF2 weights tarball from
+# preserving high UIDs when extracted as root.
 
 FROM nvcr.io/nvidia/jax:24.04-py3
 
@@ -21,31 +16,26 @@ ENV TAR_OPTIONS=--no-same-owner
 RUN apt-get update && apt-get install -y --no-install-recommends procps && \
     rm -rf /var/lib/apt/lists/*
 
-# Install conda + pin Python 3.12 + PyRosetta + fix high UIDs/GIDs
-# -xdev: stay on real filesystems, skip /proc /sys
-RUN curl -sL https://repo.anaconda.com/miniconda/Miniconda3-py312_24.11.1-0-Linux-x86_64.sh -o /tmp/miniconda.sh && \
-    bash /tmp/miniconda.sh -b -p /opt/conda && \
-    rm /tmp/miniconda.sh && \
-    export PATH="/opt/conda/bin:$PATH" && \
-    conda install -y python=3.12 && \
-    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
-    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
-    conda install -y -c https://conda.graylab.jhu.edu pyrosetta && \
-    conda clean -afy && \
-    find / -xdev \( -uid 995210 -o -gid 995210 \) -exec chown -h root:root {} + 2>/dev/null || true
-ENV PATH="/opt/conda/bin:$PATH"
+# Pin JAX/jaxlib to what NVIDIA shipped — no pip install may upgrade them
+RUN printf 'jax==0.4.26\njaxlib==0.4.26\nnumpy<2\n' > /opt/constraints.txt
+ENV PIP_CONSTRAINT=/opt/constraints.txt
 
-# Install ColabDesign + all pip dependencies into conda's Python
-# (must come AFTER conda setup so pip resolves to /opt/conda/bin/pip)
+# Install ColabDesign + dependencies into base Python 3.10
 RUN pip install --no-cache-dir \
     git+https://github.com/sokrypton/ColabDesign.git \
     biopython \
     numpy \
-    "dm-haiku==0.0.12" \
-    "jax==0.4.30" "jaxlib==0.4.30"
+    "dm-haiku==0.0.12"
 
-# Install additional BindCraft dependencies
-RUN pip install --no-cache-dir seaborn pdbfixer
+# Install PyRosetta via pip wheel (no conda needed)
+RUN pip install --no-cache-dir pyrosetta-installer && \
+    python3 -c "import pyrosetta_installer; pyrosetta_installer.install_pyrosetta()"
+
+# Install handler + BindCraft dependencies
+RUN pip install --no-cache-dir runpod boto3 seaborn scipy matplotlib pandas
+
+# pdbfixer needs openmm
+RUN pip install --no-cache-dir openmm pdbfixer
 
 # Bake AlphaFold2 model params (5.2 GB tar, ~15 GB extracted)
 ARG AWS_ACCESS_KEY_ID
@@ -66,20 +56,30 @@ RUN chmod +x /usr/local/bin/af2_initial_guess_scaffold_eval.py /usr/local/bin/af
 COPY bindcraft/ /opt/bindcraft/
 RUN chmod +x /opt/bindcraft/functions/DAlphaBall.gcc /opt/bindcraft/functions/dssp 2>/dev/null || true
 
-# Install RunPod + boto3
-RUN pip install --no-cache-dir runpod boto3
-
-# Copy handler
+# Install RunPod (last, so constraint still applies)
+# Note: runpod is already installed above, this is a no-op but explicit
 COPY handler.py /opt/handler.py
 
-# Merged-filesystem sanity check (necessary but not sufficient — layers are
-# validated independently at pull time). The sufficient check is docker save +
-# per-layer tar inspection, run post-build before push.
+# Build-time assertions
+RUN python3 -c "\
+import jax, jaxlib, numpy; \
+assert jax.__version__.startswith('0.4.26'), f'Expected jax 0.4.26, got {jax.__version__}'; \
+assert 'dist-packages' in jaxlib.__file__, f'jaxlib not from NVIDIA dist-packages: {jaxlib.__file__}'; \
+assert numpy.__version__.startswith('1.'), f'numpy 2.x breaks jax 0.4.26: got {numpy.__version__}'; \
+import haiku; import jax.interpreters.xla as x; \
+assert hasattr(x, 'xe'), f'jax.interpreters.xla.xe missing'; \
+from colabdesign import mk_af_model; \
+import pyrosetta; \
+import pdbfixer; \
+print(f'JAX {jax.__version__} (NVIDIA), numpy {numpy.__version__}, haiku OK, ColabDesign OK, PyRosetta OK, pdbfixer OK'); \
+"
+# Merged-filesystem sanity check
 RUN bad=$(find / -xdev \( -uid +65535 -o -gid +65535 \) 2>/dev/null | head -20); \
     [ -z "$bad" ] || { echo "HIGH UID/GID FILES FOUND:"; echo "$bad"; exit 1; }
 
-# Clear TAR_OPTIONS so runtime tar behaves normally
+# Clear build-only env vars
 ENV TAR_OPTIONS=
+ENV PIP_CONSTRAINT=
 
 ENTRYPOINT []
-CMD ["python", "-u", "/opt/handler.py"]
+CMD ["python3", "-u", "/opt/handler.py"]

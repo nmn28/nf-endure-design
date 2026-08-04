@@ -13,6 +13,14 @@ import json
 import time
 import glob
 
+# Fail fast if no GPU — don't silently run AF2 on CPU for an hour
+import jax
+_devices = jax.devices()
+_gpu_devices = [d for d in _devices if d.platform in ("cuda", "gpu")]
+if not _gpu_devices:
+    raise RuntimeError(f"No GPU available. JAX devices: {_devices}. AF2 requires a GPU.")
+print(f"GPU check passed: {_gpu_devices}")
+
 s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-west-2"))
 S3_BUCKET = os.environ.get("S3_BUCKET", "endure-media")
 
