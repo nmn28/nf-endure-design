@@ -159,18 +159,24 @@ def handle_colabdesign(job_id, job_input, outdir, workdir):
     print(f"[{job_id}] Uploaded {len(uploaded)} files to s3://{S3_BUCKET}/{s3_prefix}/")
 
     output_pdb_count = len(glob.glob(os.path.join(output_name, "*.pdb")))
-    # Build designs array for backend /descriptors endpoint
-    output_suffix = os.path.basename(output_name)  # "af2_initial_guess"
+    # Build designs array for backend /descriptors endpoint.
+    # Match metrics entries to actually-uploaded PDB files by design_id prefix
+    # instead of reconstructing filenames (which can diverge from actual names).
+    uploaded_pdbs = [k for k in uploaded if k.endswith(".pdb")]
     designs = []
     for m in metrics_list:
         design_id = m.get("name", m.get("id", ""))
         descriptors = {k: v for k, v in m.items()
                        if k not in ("name", "id", "sequence") and isinstance(v, (int, float))}
-        # Actual PDB filename: {design_id}_{output_suffix}.pdb inside {output_suffix}/ subdir
-        pdb_file = f"{output_suffix}/{design_id}_{output_suffix}.pdb" if design_id else ""
+        # Find the actual uploaded file whose basename starts with {design_id}_
+        pdb_key = ""
+        if design_id:
+            match = [k for k in uploaded_pdbs if os.path.basename(k).startswith(f"{design_id}_")]
+            if match:
+                pdb_key = match[0]
         designs.append({
             "id": design_id,
-            "pdb_path": f"s3://{S3_BUCKET}/{s3_prefix}/{pdb_file}" if pdb_file else "",
+            "pdb_path": f"s3://{S3_BUCKET}/{pdb_key}" if pdb_key else "",
             "descriptors": descriptors,
             "sequence": m.get("sequence", ""),
         })
