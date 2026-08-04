@@ -13,14 +13,6 @@ import json
 import time
 import glob
 
-# Fail fast if no GPU — don't silently run AF2 on CPU for an hour
-import jax
-_devices = jax.devices()
-_gpu_devices = [d for d in _devices if d.platform in ("cuda", "gpu")]
-if not _gpu_devices:
-    raise RuntimeError(f"No GPU available. JAX devices: {_devices}. AF2 requires a GPU.")
-print(f"GPU check passed: {_gpu_devices}")
-
 s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-west-2"))
 S3_BUCKET = os.environ.get("S3_BUCKET", "endure-media")
 
@@ -168,14 +160,17 @@ def handle_colabdesign(job_id, job_input, outdir, workdir):
 
     output_pdb_count = len(glob.glob(os.path.join(output_name, "*.pdb")))
     # Build designs array for backend /descriptors endpoint
+    output_suffix = os.path.basename(output_name)  # "af2_initial_guess"
     designs = []
     for m in metrics_list:
         design_id = m.get("name", m.get("id", ""))
         descriptors = {k: v for k, v in m.items()
                        if k not in ("name", "id", "sequence") and isinstance(v, (int, float))}
+        # Actual PDB filename: {design_id}_{output_suffix}.pdb inside {output_suffix}/ subdir
+        pdb_file = f"{output_suffix}/{design_id}_{output_suffix}.pdb" if design_id else ""
         designs.append({
             "id": design_id,
-            "pdb_path": f"s3://{S3_BUCKET}/{s3_prefix}/{design_id}.pdb" if design_id else "",
+            "pdb_path": f"s3://{S3_BUCKET}/{s3_prefix}/{pdb_file}" if pdb_file else "",
             "descriptors": descriptors,
             "sequence": m.get("sequence", ""),
         })
@@ -293,6 +288,9 @@ def handle_bindcraft(job_id, job_input, outdir, workdir):
         if not os.path.exists(design_path):
             raise RuntimeError(f"BindCraft failed: {bc_result.stderr[-500:]}")
 
+    # Upload results first so s3_prefix is defined for pdb_path construction
+    s3_prefix = f"protein-design/{job_id}/bindcraft"
+
     # Parse final design stats CSV
     designs = []
     stats_csv = os.path.join(design_path, "final_design_stats.csv")
@@ -318,9 +316,6 @@ def handle_bindcraft(job_id, job_input, outdir, workdir):
     # Count accepted PDBs
     accepted_dir = os.path.join(design_path, "Accepted")
     accepted_pdbs = glob.glob(os.path.join(accepted_dir, "*.pdb")) if os.path.exists(accepted_dir) else []
-
-    # Upload results
-    s3_prefix = f"protein-design/{job_id}/bindcraft"
     uploaded = upload_directory(design_path, s3_prefix)
     print(f"[{job_id}] Uploaded {len(uploaded)} files to s3://{S3_BUCKET}/{s3_prefix}/")
 
@@ -349,6 +344,14 @@ def handler(job):
     os.makedirs(workdir, exist_ok=True)
 
     try:
+        # GPU check — per-job so it doesn't kill the worker at boot
+        import jax
+        devices = jax.devices()
+        gpu_devices = [d for d in devices if d.platform in ("cuda", "gpu")]
+        if not gpu_devices:
+            raise RuntimeError(f"No GPU available. JAX devices: {devices}. AF2 requires a GPU.")
+        print(f"[{job_id}] GPU check passed: {gpu_devices}")
+
         mode = job_input.get("mode", "colabdesign")
 
         if mode == "bindcraft":
