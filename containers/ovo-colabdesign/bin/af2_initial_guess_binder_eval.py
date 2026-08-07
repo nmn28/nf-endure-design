@@ -176,7 +176,7 @@ if __name__ == "__main__":
         model_names=["model_1_multimer_v3" if options.multimer else "model_1_ptm"],
         use_initial_guess=not options.blind,
     )
-    paths = sorted(glob.glob(os.path.join(options.input_dir, "*.pdb")))
+    paths = sorted(glob.glob(os.path.join(options.input_dir, "**/*.pdb"), recursive=True))
     print(f"Getting sequence lengths from {len(paths):,} PDBs")
 
     total_lengths = {}

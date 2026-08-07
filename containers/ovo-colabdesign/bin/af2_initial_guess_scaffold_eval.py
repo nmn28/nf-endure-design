@@ -292,7 +292,7 @@ if __name__ == "__main__":
         use_multimer=options.multimer,
         use_initial_guess=True,
     )
-    paths = sorted(glob.glob(os.path.join(options.input_dir, "*.pdb")))
+    paths = sorted(glob.glob(os.path.join(options.input_dir, "**/*.pdb"), recursive=True))
     print(f"Getting info from {len(paths):,} PDBs")
 
     remark_lines_by_pdb_path = {}

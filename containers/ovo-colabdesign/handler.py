@@ -82,7 +82,7 @@ def handle_colabdesign(job_id, job_input, outdir, workdir):
     print(f"[{job_id}] Downloading PDB directory: {pdb_dir_uri}")
     download_s3_directory(pdb_dir_uri, pdb_dir)
 
-    pdb_count = len(glob.glob(os.path.join(pdb_dir, "*.pdb")))
+    pdb_count = len(glob.glob(os.path.join(pdb_dir, "**/*.pdb"), recursive=True))
     print(f"[{job_id}] Downloaded {pdb_count} PDB files")
 
     native_pdb = ""

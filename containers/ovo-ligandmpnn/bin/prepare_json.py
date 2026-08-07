@@ -175,7 +175,7 @@ if __name__ == "__main__":
     options = parser.parse_args()
 
     if os.path.isdir(options.pdb_dir):
-        paths = sorted(glob.glob(os.path.join(options.pdb_dir, "*.pdb")))
+        paths = sorted(glob.glob(os.path.join(options.pdb_dir, "**/*.pdb"), recursive=True))
         # paths = [pdb_path.replace("_standardized", "") for pdb_path in paths]
         print(f"Reading sequences from {len(paths):,} PDBs")
         pdb_path_ids = {pdb_path: "" for pdb_path in paths}
