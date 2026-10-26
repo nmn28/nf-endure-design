@@ -58,7 +58,7 @@ RUN chmod +x /opt/bindcraft/functions/DAlphaBall.gcc /opt/bindcraft/functions/ds
 
 # Install RunPod (last, so constraint still applies)
 # Note: runpod is already installed above, this is a no-op but explicit
-COPY handler.py /opt/handler.py
+COPY handler.py /app/handler.py
 
 # Build-time assertions
 RUN python3 -c "\
@@ -82,4 +82,4 @@ ENV TAR_OPTIONS=
 ENV PIP_CONSTRAINT=
 
 ENTRYPOINT []
-CMD ["python3", "-u", "/opt/handler.py"]
+CMD ["python3", "-u", "/app/handler.py"]

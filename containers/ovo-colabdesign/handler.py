@@ -350,13 +350,14 @@ def handler(job):
     os.makedirs(workdir, exist_ok=True)
 
     try:
-        # GPU check — per-job so it doesn't kill the worker at boot
-        import jax
-        devices = jax.devices()
-        gpu_devices = [d for d in devices if d.platform in ("cuda", "gpu")]
-        if not gpu_devices:
-            raise RuntimeError(f"No GPU available. JAX devices: {devices}. AF2 requires a GPU.")
-        print(f"[{job_id}] GPU check passed: {gpu_devices}")
+        # GPU check — NVIDIA's JAX 0.4.26 dev build lacks jax.devices() and
+        # jax.default_backend(), so use the internal XLA bridge instead.
+        from jax.lib import xla_bridge
+        backend = xla_bridge.get_backend()
+        platform = backend.platform
+        if platform not in ("gpu", "cuda"):
+            raise RuntimeError(f"No GPU available. XLA platform={platform}. AF2 requires a GPU.")
+        print(f"[{job_id}] GPU check passed: platform={platform}")
 
         mode = job_input.get("mode", "colabdesign")
 
